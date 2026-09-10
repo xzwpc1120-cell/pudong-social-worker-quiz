@@ -2,6 +2,10 @@
 
 面向上海浦东新区社区工作者招聘考试的互动练习网站。
 
+## 在线使用
+
+<https://xzwpc1120-cell.github.io/pudong-social-worker-quiz/>
+
 ## 功能
 
 - 2025 年上半年、2025 年下半年、2026 年上半年相关客观练习题
@@ -29,4 +33,10 @@ npm run dev
 
 ```bash
 npm run build
+```
+
+GitHub Pages 静态版本：
+
+```bash
+npm run build:pages
 ```
