@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 
 type Question = { id: number; category: string; period: string; stem: string; options: string[]; answer: number; explanation: string };
+type UserProfile = { name: string; id: string; createdAt: number };
 
 const BANK: Question[] = [
   {id:1,category:"政治理论",period:"2026上半年相关",stem:"新时代坚持和发展中国特色社会主义的根本立场是（ ）。",options:["以经济建设为中心","坚持以人民为中心","全面深化改革","推动高质量发展"],answer:1,explanation:"以人民为中心是新时代坚持和发展中国特色社会主义的根本立场。"},
@@ -55,13 +56,20 @@ function shuffle<T>(items:T[]) { return [...items].sort(()=>Math.random()-.5); }
 const LETTERS = ["A","B","C","D"];
 
 export default function Home() {
+  const [user,setUser]=useState<UserProfile|null>(null); const [authReady,setAuthReady]=useState(false);
+  const [authMode,setAuthMode]=useState<"login"|"register">("login"); const [username,setUsername]=useState(""); const [authError,setAuthError]=useState("");
   const [view,setView]=useState<"home"|"quiz"|"result"|"mistakes">("home");
   const [count,setCount]=useState(15); const [paper,setPaper]=useState<Question[]>([]);
   const [answers,setAnswers]=useState<Record<number,number>>({}); const [submitted,setSubmitted]=useState(false);
   const [mistakeIds,setMistakeIds]=useState<number[]>([]); const [openArticle,setOpenArticle]=useState<number|null>(null);
   const [filter,setFilter]=useState("全部");
-  useEffect(()=>{try{setMistakeIds(JSON.parse(localStorage.getItem("pudong-mistakes")||"[]"))}catch{}},[]);
-  const saveMistakes=(ids:number[])=>{setMistakeIds(ids);localStorage.setItem("pudong-mistakes",JSON.stringify(ids))};
+  useEffect(()=>{try{const users:UserProfile[]=JSON.parse(localStorage.getItem("pudong-users")||"[]");const id=localStorage.getItem("pudong-current-user");setUser(users.find(item=>item.id===id)||null)}catch{}finally{setAuthReady(true)}},[]);
+  useEffect(()=>{if(!user){setMistakeIds([]);return}try{setMistakeIds(JSON.parse(localStorage.getItem(`pudong-mistakes:${user.id}`)||"[]"))}catch{setMistakeIds([])}},[user]);
+  const saveMistakes=(ids:number[])=>{setMistakeIds(ids);if(user)localStorage.setItem(`pudong-mistakes:${user.id}`,JSON.stringify(ids))};
+  const cleanName=()=>username.trim().replace(/\s+/g," ");
+  const enter=(profile:UserProfile)=>{setUser(profile);localStorage.setItem("pudong-current-user",profile.id);setUsername("");setAuthError("");setView("home")};
+  const authenticate=()=>{const name=cleanName();if(name.length<2||name.length>20){setAuthError("用户名请输入 2—20 个字符");return}let users:UserProfile[]=[];try{users=JSON.parse(localStorage.getItem("pudong-users")||"[]")}catch{}const found=users.find(item=>item.name.toLocaleLowerCase()===name.toLocaleLowerCase());if(authMode==="login"){if(!found){setAuthError("未找到该用户，请先注册");return}enter(found);return}if(found){setAuthError("用户名已注册，请直接登录");return}const token=typeof crypto!=="undefined"&&crypto.randomUUID?crypto.randomUUID().replaceAll("-","").slice(0,10):`${Date.now()}${Math.random()}`.replace(".","").slice(-10);const profile={name,id:`PD-${token.toUpperCase()}`,createdAt:Date.now()};localStorage.setItem("pudong-users",JSON.stringify([...users,profile]));enter(profile)};
+  const logout=()=>{localStorage.removeItem("pudong-current-user");setUser(null);setAnswers({});setPaper([]);setView("home")};
   const start=(mistakes=false)=>{const source=mistakes?BANK.filter(q=>mistakeIds.includes(q.id)):BANK;setPaper(shuffle(source).slice(0,mistakes?source.length:count));setAnswers({});setSubmitted(false);setView(mistakes?"mistakes":"quiz");window.scrollTo(0,0)};
   const startQuestion=(q:Question)=>{setPaper([q]);setAnswers({});setSubmitted(false);setView("quiz");window.scrollTo(0,0)};
   const choose=(q:Question,index:number)=>{if(submitted||answers[q.id]!==undefined)return;setAnswers(a=>({...a,[q.id]:index}));if(index!==q.answer&&!mistakeIds.includes(q.id))saveMistakes([...mistakeIds,q.id]);if(view==="mistakes"&&index===q.answer)saveMistakes(mistakeIds.filter(id=>id!==q.id));};
@@ -70,8 +78,11 @@ export default function Home() {
   const categories=["全部",...Array.from(new Set(BANK.map(q=>q.category)))];
   const filtered=filter==="全部"?BANK:BANK.filter(q=>q.category===filter);
 
+  if(!authReady)return <main className="auth-shell"><div className="auth-loading">正在载入训练档案…</div></main>;
+  if(!user)return <main className="auth-shell"><section className="auth-card"><div className="auth-logo">浦</div><small>浦东社工备考训练室</small><h1>{authMode==="register"?"创建专属训练档案":"欢迎回来"}</h1><p>仅需用户名即可使用。每个用户拥有独立的错题本与训练数据。</p><div className="auth-tabs"><button className={authMode==="login"?"on":""} onClick={()=>{setAuthMode("login");setAuthError("")}}>登录</button><button className={authMode==="register"?"on":""} onClick={()=>{setAuthMode("register");setAuthError("")}}>注册</button></div><form onSubmit={event=>{event.preventDefault();authenticate()}}><label htmlFor="username">用户名</label><input id="username" autoFocus autoComplete="username" maxLength={20} value={username} onChange={event=>{setUsername(event.target.value);setAuthError("")}} placeholder="请输入用户名"/><div className="auth-error" aria-live="polite">{authError}</div><button className="primary" type="submit">{authMode==="register"?"注册并开始学习":"登录"} <span>→</span></button></form><div className="auth-note"><b>本地账号说明</b><span>系统会生成唯一专属 ID；账号和数据仅保存在当前浏览器，清除浏览器数据或更换设备后无法恢复。</span></div></section></main>;
+
   return <main>
-    <header className="topbar"><button className="brand" onClick={()=>setView("home")}><span>浦</span><b>浦东社工备考</b></button><nav><button onClick={()=>setView("home")} className={view==="home"?"active":""}>首页</button><button onClick={()=>start(false)}>随机练习</button><button onClick={()=>mistakeIds.length&&start(true)}>错题本 <i>{mistakeIds.length}</i></button></nav></header>
+    <header className="topbar"><button className="brand" onClick={()=>setView("home")}><span>浦</span><b>浦东社工备考</b></button><nav><button onClick={()=>setView("home")} className={view==="home"?"active":""}>首页</button><button onClick={()=>start(false)}>随机练习</button><button onClick={()=>mistakeIds.length&&start(true)}>错题本 <i>{mistakeIds.length}</i></button></nav><div className="profile"><span><b>{user.name}</b><small>{user.id}</small></span><button onClick={logout}>退出</button></div></header>
     {view==="home"&&<>
       <section className="hero"><div className="eyebrow">2025—2026 · 综合能力测验</div><h1>把每一次作答，<br/>变成一次扎实的进步。</h1><p>依据公开考情与相关知识点整理。随机组卷、即时纠错、完整复盘，帮你把薄弱点练成得分点。</p><div className="hero-actions"><button className="primary" onClick={()=>start(false)}>开始随机练习 <span>→</span></button><button className="secondary" onClick={()=>mistakeIds.length&&start(true)}>回顾 {mistakeIds.length} 道错题</button></div><div className="setup"><label>每卷题数</label>{[10,15,20,30].map(n=><button key={n} className={count===n?"selected":""} onClick={()=>setCount(n)}>{n}题</button>)}</div><aside><strong>{BANK.length}</strong><span>道精选练习题</span><strong>{ARTICLES.length}</strong><span>篇写作范文</span><strong>3</strong><span>个考试批次</span></aside></section>
       <section className="section"><div className="section-head"><div><small>WRITING LIBRARY</small><h2>写作范文资料库</h2><p>写作不纳入在线答题，在这里集中阅读常用结构与表达。</p></div></div><div className="articles">{ARTICLES.map((a,i)=><article key={a.title} onClick={()=>setOpenArticle(openArticle===i?null:i)}><div className="article-no">0{i+1}</div><div><span className="tag">{a.type}</span><h3>{a.title}</h3><p>{a.tips}</p></div><button aria-label="展开范文">{openArticle===i?"−":"＋"}</button>{openArticle===i&&<div className="article-body"><pre>{a.body}</pre><div><b>写作提示</b>{a.tips}</div></div>}</article>)}</div></section>
@@ -79,6 +90,6 @@ export default function Home() {
     </>}
     {(view==="quiz"||view==="mistakes")&&<section className="quiz-wrap"><div className="quiz-title"><div><small>{view==="mistakes"?"MISTAKE REVIEW":"RANDOM PRACTICE"}</small><h1>{view==="mistakes"?"错题强化训练":"综合能力随机卷"}</h1></div><div className="progress"><span>{Object.keys(answers).length} / {paper.length}</span><div><i style={{width:`${Object.keys(answers).length/paper.length*100}%`}}/></div></div></div><p className="notice">选择后即锁定答案。答错时立即显示正确答案，答对则继续下一题。</p>{paper.map((q,qi)=>{const picked=answers[q.id];const wrong=picked!==undefined&&picked!==q.answer;return <article className="question" key={q.id}><div className="qmeta"><b>{String(qi+1).padStart(2,"0")}</b><span>{q.category}</span><em>{q.period}</em></div><h3>{q.stem}</h3><div className="options">{q.options.map((op,i)=><button key={op} disabled={picked!==undefined} onClick={()=>choose(q,i)} className={`${picked===i?"picked":""} ${wrong&&i===q.answer?"correct":""} ${wrong&&picked===i?"wrong":""}`}><i>{LETTERS[i]}</i><span>{op}</span>{picked===i&&<b>{wrong?"×":"✓"}</b>}</button>)}</div>{wrong&&<div className="feedback"><b>答案：{LETTERS[q.answer]}</b><span>{q.explanation}</span></div>}</article>})}<div className="submitbar"><span>已完成 {Object.keys(answers).length} / {paper.length}</span><button className="primary" disabled={!paper.length} onClick={submit}>提交交卷</button></div></section>}
     {view==="result"&&<section className="result-wrap"><div className="score-card"><small>本次成绩</small><strong>{paper.length?Math.round(score/paper.length*100):0}<i>分</i></strong><p>答对 {score} 题 · 答错/未答 {paper.length-score} 题</p><button className="primary" onClick={()=>start(false)}>再练一卷 →</button></div><div className="review"><div className="section-head"><div><small>ANSWER REVIEW</small><h2>答卷与解析</h2></div><span>逐题公布正确答案</span></div>{paper.map((q,i)=>{const ok=answers[q.id]===q.answer;return <article key={q.id} className={ok?"review-ok":"review-wrong"}><div className="review-mark">{ok?"✓":"×"}</div><div><em>{i+1}. {q.category}</em><h3>{q.stem}</h3><p>你的答案：{answers[q.id]===undefined?"未作答":`${LETTERS[answers[q.id]]}. ${q.options[answers[q.id]]}`}</p><p className="right-answer">正确答案：{LETTERS[q.answer]}. {q.options[q.answer]}</p><small>{q.explanation}</small></div></article>})}</div></section>}
-    <footer><b>浦东社工备考训练室</b><p>本题库依据公开考情与相关知识整理，不是官方原卷或官方答案。</p><span>数据仅保存在你的浏览器本地</span></footer>
+    <footer><b>浦东社工备考训练室</b><p>本题库依据公开考情与相关知识整理，不是官方原卷或官方答案。</p><span>{user.name}（{user.id}）的数据仅保存在当前浏览器</span></footer>
   </main>
 }
