@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { EXTRA_QUESTIONS } from "./extra-questions";
 
-type QuestionType = "single"|"multiple"|"judge";
-type Question = { id: number; category: string; period: string; stem: string; options: string[]; answer: number|number[]; explanation: string; type?: QuestionType; visual?: string };
+export type QuestionType = "single"|"multiple"|"judge";
+export type Question = { id: number; category: string; period: string; stem: string; options: string[]; answer: number|number[]; explanation: string; type?: QuestionType; visual?: string };
 type UserProfile = { name: string; id: string; createdAt: number };
 
-const BANK: Question[] = [
+const CORE_BANK: Question[] = [
   {id:1,category:"政治理论",period:"2026上半年相关",stem:"新时代坚持和发展中国特色社会主义的根本立场是（ ）。",options:["以经济建设为中心","坚持以人民为中心","全面深化改革","推动高质量发展"],answer:1,explanation:"以人民为中心是新时代坚持和发展中国特色社会主义的根本立场。"},
   {id:2,category:"政治理论",period:"2025上半年相关",stem:"全过程人民民主的本质属性是（ ）。",options:["最广泛、最真实、最管用的民主","选举民主","协商民主","基层民主"],answer:0,explanation:"全过程人民民主是最广泛、最真实、最管用的社会主义民主。"},
   {id:3,category:"法律常识",period:"2025下半年相关",stem:"根据《民法典》，不满八周岁的未成年人属于（ ）。",options:["完全民事行为能力人","限制民事行为能力人","无民事行为能力人","视为完全民事行为能力人"],answer:2,explanation:"不满八周岁的未成年人为无民事行为能力人，由其法定代理人代理实施民事法律行为。"},
@@ -65,6 +66,7 @@ const BANK: Question[] = [
   {id:56,category:"图像逻辑",period:"2026上半年相关",stem:"下列哪一项可以延续序列规律？",visual:"●□  □●  ●□  ?",options:["●□","□●","●●","□□"],answer:1,explanation:"圆与方块的位置左右交替，下一项应为方块在左、圆在右。"},
   {id:57,category:"图像逻辑",period:"2026上半年相关",stem:"九宫格同一行中，第三格由前两格的符号数量相加得到。问号处应为（ ）。",visual:"第一行：● + ●● = ●●●　第二行：■ + ■■ = ?",options:["■■","■■■","●●●","■■■■"],answer:1,explanation:"同一行第三格为前两格符号数量之和，1个方块加2个方块得到3个方块。"},
 ];
+const BANK:Question[]=[...CORE_BANK,...EXTRA_QUESTIONS];
 
 const ARTICLES = [
   {type:"公文",title:"关于开展社区安全隐患排查的通知",body:"各居民区、相关单位：\n为进一步筑牢社区安全防线，现决定开展安全隐患集中排查。请重点检查消防通道、电动自行车充电、燃气使用及独居老人居住环境。各单位要建立问题清单，明确责任人和整改时限，于6月20日前报送排查情况。\n特此通知。\n××街道办事处\n2026年6月10日",tips:"标题＋主送机关＋缘由事项＋具体要求＋落款日期。通知重在明确“谁、何时、做什么、怎么报”。"},
